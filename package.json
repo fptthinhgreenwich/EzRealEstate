@@ -1,0 +1,22 @@
+{
+  "name": "ezrealestate",
+  "version": "1.0.0",
+  "description": "Vietnamese Real Estate Platform similar to Redfin.com",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
+    "server:dev": "cd backend && npm run dev",
+    "client:dev": "cd frontend && npm run dev",
+    "server:build": "cd backend && npm run build",
+    "client:build": "cd frontend && npm run build",
+    "server:start": "cd backend && npm start",
+    "client:start": "cd frontend && npm run preview",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  },
+  "keywords": ["real-estate", "vietnam", "property", "listing"],
+  "author": "EZREALESTATE Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
