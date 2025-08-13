@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { authMiddleware, adminMiddleware } from '../middleware/auth';
 import { createNotification } from '../controllers/notificationController';
 import adminTransactionController from '../controllers/adminTransactionController';
+import { sendPropertyApprovalEmail } from '../config/email';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -367,6 +368,21 @@ router.patch('/properties/:id/approve', async (req, res) => {
       { propertyTitle: property.title }
     );
 
+    // Send email notification
+    try {
+      await sendPropertyApprovalEmail(
+        property.seller.email,
+        property.seller.fullName,
+        property.title,
+        property.id,
+        'APPROVED'
+      );
+      console.log('Approval email sent to:', property.seller.email);
+    } catch (emailError) {
+      console.error('Failed to send approval email:', emailError);
+      // Don't fail the request if email fails
+    }
+
     res.json({
       success: true,
       message: 'Đã duyệt bất động sản thành công',
@@ -412,6 +428,22 @@ router.patch('/properties/:id/reject', async (req, res) => {
         rejectionReason: reason
       }
     );
+
+    // Send email notification
+    try {
+      await sendPropertyApprovalEmail(
+        property.seller.email,
+        property.seller.fullName,
+        property.title,
+        property.id,
+        'REJECTED',
+        reason
+      );
+      console.log('Rejection email sent to:', property.seller.email);
+    } catch (emailError) {
+      console.error('Failed to send rejection email:', emailError);
+      // Don't fail the request if email fails
+    }
 
     res.json({
       success: true,
