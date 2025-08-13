@@ -2,6 +2,7 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authMiddleware, adminMiddleware } from '../middleware/auth';
 import { createNotification } from '../controllers/notificationController';
+import adminTransactionController from '../controllers/adminTransactionController';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -69,6 +70,44 @@ router.get('/dashboard', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Lỗi khi lấy thống kê dashboard'
+    });
+  }
+});
+
+// Get user statistics
+router.get('/users/stats', async (req, res) => {
+  try {
+    const [
+      totalUsers,
+      verifiedUsers,
+      sellers,
+      buyers,
+      totalBalance
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({ where: { isVerified: true } }),
+      prisma.user.count({ where: { role: 'SELLER' } }),
+      prisma.user.count({ where: { role: 'BUYER' } }),
+      prisma.user.aggregate({
+        _sum: { balance: true }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        totalUsers,
+        verifiedUsers,
+        sellers,
+        buyers,
+        totalBalance: totalBalance._sum.balance || 0
+      }
+    });
+  } catch (error) {
+    console.error('Get user stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy thống kê người dùng'
     });
   }
 });
@@ -518,6 +557,72 @@ router.post('/add-balance', async (req, res) => {
   }
 });
 
+// Deduct money from user balance
+router.post('/deduct-balance', async (req, res) => {
+  try {
+    const { userId, amount, description } = req.body;
+    
+    if (!userId || !amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Thông tin không hợp lệ'
+      });
+    }
+
+    // Check current balance
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
+    }
+
+    if (currentUser.balance < amount) {
+      return res.status(400).json({
+        success: false,
+        message: `Số dư không đủ. Số dư hiện tại: ${currentUser.balance} VNĐ`
+      });
+    }
+
+    // Update user balance
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        balance: {
+          decrement: amount
+        }
+      }
+    });
+
+    // Create transaction record
+    await prisma.walletTransaction.create({
+      data: {
+        userId,
+        amount: -amount, // Negative amount for deduction
+        type: 'ADMIN_DEDUCT',
+        description: description || `Admin trừ tiền: ${amount} VNĐ`,
+        status: 'COMPLETED'
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Đã trừ tiền thành công',
+      data: user
+    });
+  } catch (error) {
+    console.error('Deduct balance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi trừ tiền'
+    });
+  }
+});
+
 // Admin upgrade property to premium
 router.post('/upgrade-premium', async (req, res) => {
   try {
@@ -563,54 +668,11 @@ router.post('/upgrade-premium', async (req, res) => {
   }
 });
 
-// Get all transactions
-router.get('/transactions', async (req, res) => {
-  try {
-    const { page = 1, limit = 10, type = '' } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
-
-    const where: any = {};
-    if (type) {
-      where.type = String(type);
-    }
-
-    const [transactions, total] = await Promise.all([
-      prisma.walletTransaction.findMany({
-        where,
-        skip,
-        take: Number(limit),
-        orderBy: { createdAt: 'desc' },
-        include: {
-          user: {
-            select: {
-              id: true,
-              fullName: true,
-              email: true
-            }
-          }
-        }
-      }),
-      prisma.walletTransaction.count({ where })
-    ]);
-
-    res.json({
-      success: true,
-      data: transactions,
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total,
-        totalPages: Math.ceil(total / Number(limit))
-      }
-    });
-  } catch (error) {
-    console.error('Get transactions error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi khi lấy lịch sử giao dịch'
-    });
-  }
-});
+// Transaction Management Routes
+router.get('/transactions', adminTransactionController.getAllTransactions);
+router.get('/transactions/stats', adminTransactionController.getTransactionStats);
+router.get('/transactions/:transactionId', adminTransactionController.getTransactionDetail);
+router.put('/transactions/:transactionId/status', adminTransactionController.updateTransactionStatus);
 
 // Update premium prices
 router.post('/premium-prices', async (req, res) => {

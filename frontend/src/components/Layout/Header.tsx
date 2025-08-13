@@ -35,7 +35,8 @@ import {
   Analytics as AnalyticsIcon,
   AdminPanelSettings as AdminIcon,
   Message as MessageIcon,
-  Chat as ChatIcon
+  Chat as ChatIcon,
+  AccountBalanceWallet as WalletIcon
 } from '@mui/icons-material'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { styled } from '@mui/material/styles'
@@ -139,10 +140,21 @@ const Header = () => {
     }
   }
 
-  const navigationItems = [
+  interface NavItem {
+    label: string;
+    path: string;
+    icon: React.ReactElement;
+    authRequired?: boolean;
+    sellerOnly?: boolean;
+    adminOnly?: boolean;
+    badge?: number;
+  }
+
+  const navigationItems: NavItem[] = [
     { label: 'Trang chủ', path: '/', icon: <HomeIcon /> },
     { label: 'Mua bán', path: '/properties', icon: <LocationIcon /> },
     { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon />, authRequired: true },
+    { label: 'Ví của tôi', path: '/wallet', icon: <WalletIcon />, authRequired: true },
     { label: 'Đăng tin', path: '/dashboard/new-property', icon: <AddIcon />, authRequired: true, sellerOnly: true },
     { label: 'Admin', path: '/admin', icon: <AdminIcon />, authRequired: true, adminOnly: true },
   ]
@@ -240,13 +252,6 @@ const Header = () => {
           >
             <Badge badgeContent={unreadMessages} color="error">
               <MessageIcon />
-            </Badge>
-          </IconButton>
-
-          {/* Notifications */}
-          <IconButton color="inherit">
-            <Badge badgeContent={3} color="warning">
-              <NotificationsIcon />
             </Badge>
           </IconButton>
 

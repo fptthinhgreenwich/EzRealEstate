@@ -110,7 +110,6 @@ const SellerDashboard = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [premiumDialogOpen, setPremiumDialogOpen] = useState(false);
-  const [depositDialogOpen, setDepositDialogOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedPremiumPackage, setSelectedPremiumPackage] = useState<string>('');
 
@@ -227,23 +226,6 @@ const SellerDashboard = () => {
     }
   };
 
-  const handleDepositMoney = async (amount: number) => {
-    try {
-      const response = await api.post('/wallet/deposit', {
-        amount,
-        paymentMethod: 'BANK_TRANSFER',
-        transactionId: `TXN${Date.now()}`
-      });
-      if (response.data.success) {
-        loadWalletBalance();
-        setDepositDialogOpen(false);
-        alert('Nạp tiền thành công!');
-      }
-    } catch (error: any) {
-      console.error('Error depositing money:', error);
-      alert(error.response?.data?.message || 'Lỗi khi nạp tiền');
-    }
-  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -295,11 +277,12 @@ const SellerDashboard = () => {
             </Typography>
           </Card>
           <Button 
-            variant="contained" 
+            variant="outlined" 
+            size="small"
             startIcon={<MoneyIcon />}
-            onClick={() => setDepositDialogOpen(true)}
+            onClick={() => navigate('/wallet')}
           >
-            Nạp tiền
+            Quản lý ví
           </Button>
         </Box>
       </Box>
@@ -734,51 +717,6 @@ const SellerDashboard = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Deposit Money Dialog */}
-      <Dialog open={depositDialogOpen} onClose={() => setDepositDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <MoneyIcon color="primary" />
-            Nạp tiền vào ví
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Chọn số tiền muốn nạp vào ví
-          </Typography>
-          
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            {[100000, 500000, 1000000, 2000000, 5000000].map((amount) => (
-              <Grid item xs={6} sm={4} key={amount}>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  onClick={() => {
-                    handleDepositMoney(amount);
-                  }}
-                >
-                  {formatCurrency(amount)}
-                </Button>
-              </Grid>
-            ))}
-          </Grid>
-          
-          <Alert severity="info">
-            <Typography variant="body2">
-              <strong>Thông tin chuyển khoản:</strong><br />
-              Ngân hàng: Vietcombank<br />
-              STK: 1234567890<br />
-              Tên TK: EZREALESTATE COMPANY<br />
-              Nội dung: NAP {user?.id}
-            </Typography>
-          </Alert>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDepositDialogOpen(false)}>
-            Đóng
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Container>
   );
 };

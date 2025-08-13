@@ -26,7 +26,11 @@ router.get('/conversations', authMiddleware, async (req, res) => {
         OR: [
           { buyerId: userId },
           { sellerId: userId }
-        ]
+        ],
+        // Only show conversations that have messages
+        lastMessage: {
+          not: null
+        }
       },
       include: {
         buyer: {
@@ -234,20 +238,52 @@ router.post('/conversations/start', authMiddleware, async (req, res) => {
     
     // Determine buyer and seller based on roles
     let buyerId, sellerId;
-    if (userRole === 'BUYER') {
-      buyerId = userId;
-      sellerId = receiverId;
+    
+    // If a property is involved, the property owner is always the seller
+    if (propertyId) {
+      const property = await prisma.property.findUnique({
+        where: { id: propertyId },
+        select: { sellerId: true }
+      });
+      
+      if (property) {
+        sellerId = property.sellerId;
+        buyerId = (sellerId === userId) ? receiverId : userId;
+      } else {
+        // Fallback to role-based determination
+        if (userRole === 'BUYER') {
+          buyerId = userId;
+          sellerId = receiverId;
+        } else if (receiver.role === 'BUYER') {
+          buyerId = receiverId;
+          sellerId = userId;
+        } else {
+          // Both are sellers or admins, use sender as buyer for simplicity
+          buyerId = userId;
+          sellerId = receiverId;
+        }
+      }
     } else {
-      buyerId = receiverId;
-      sellerId = userId;
+      // No property, determine by roles
+      if (userRole === 'BUYER') {
+        buyerId = userId;
+        sellerId = receiverId;
+      } else if (receiver.role === 'BUYER') {
+        buyerId = receiverId;
+        sellerId = userId;
+      } else {
+        // Both are sellers or admins, use sender as buyer for simplicity
+        buyerId = userId;
+        sellerId = receiverId;
+      }
     }
     
     // Check if conversation already exists
+    // We only care about buyer-seller pair, not property
     let conversation = await prisma.conversation.findFirst({
       where: {
         buyerId,
-        sellerId,
-        propertyId: propertyId || null
+        sellerId
       },
       include: {
         buyer: {
@@ -277,15 +313,13 @@ router.post('/conversations/start', authMiddleware, async (req, res) => {
       }
     });
     
-    if (!conversation) {
-      // Create new conversation
-      conversation = await prisma.conversation.create({
-        data: {
-          buyerId,
-          sellerId,
-          propertyId: propertyId || null,
-          lastMessage: initialMessage || null,
-          lastMessageAt: initialMessage ? new Date() : null
+    // If conversation exists but doesn't have a property, and we're starting from a property page, update it
+    if (conversation && !conversation.propertyId && propertyId) {
+      console.log('Updating existing conversation with propertyId:', propertyId);
+      conversation = await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { 
+          propertyId
         },
         include: {
           buyer: {
@@ -309,11 +343,105 @@ router.post('/conversations/start', authMiddleware, async (req, res) => {
               id: true,
               title: true,
               images: true,
-              price: true
+              price: true,
+              area: true,
+              address: true,
+              type: true
             }
           }
         }
       });
+    }
+    
+    if (!conversation) {
+      // Create new conversation
+      console.log('Creating new conversation:', { buyerId, sellerId, propertyId });
+      
+      try {
+        conversation = await prisma.conversation.create({
+          data: {
+            buyerId,
+            sellerId,
+            propertyId: propertyId || null,
+            lastMessage: initialMessage || null,
+            lastMessageAt: initialMessage ? new Date() : null
+          },
+        include: {
+          buyer: {
+            select: {
+              id: true,
+              fullName: true,
+              avatar: true,
+              email: true
+            }
+          },
+          seller: {
+            select: {
+              id: true,
+              fullName: true,
+              avatar: true,
+              email: true
+            }
+          },
+          property: {
+            select: {
+              id: true,
+              title: true,
+              images: true,
+              price: true,
+              area: true,
+              address: true,
+              type: true
+            }
+          }
+        }
+        });
+      } catch (createError: any) {
+        console.error('Error creating conversation:', createError);
+        
+        // If unique constraint error, try to find existing conversation
+        if (createError.code === 'P2002') {
+          console.log('Unique constraint error, finding existing conversation');
+          conversation = await prisma.conversation.findFirst({
+            where: {
+              buyerId,
+              sellerId
+            },
+            include: {
+              buyer: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  avatar: true,
+                  email: true
+                }
+              },
+              seller: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  avatar: true,
+                  email: true
+                }
+              },
+              property: {
+                select: {
+                  id: true,
+                  title: true,
+                  images: true,
+                  price: true
+                }
+              }
+            }
+          });
+          
+          if (!conversation) {
+            throw createError;
+          }
+        } else {
+          throw createError;
+        }
+      }
       
       // Create initial message if provided
       if (initialMessage) {
@@ -341,9 +469,22 @@ router.post('/conversations/start', authMiddleware, async (req, res) => {
       }
     }
     
+    // Format the response similar to GET /conversations/:id
+    const isCurrentUserBuyer = conversation.buyerId === userId;
+    const otherUser = isCurrentUserBuyer ? conversation.seller : conversation.buyer;
+    
     res.json({
       success: true,
-      data: conversation
+      data: {
+        id: conversation.id,
+        otherUser,
+        property: conversation.property,
+        lastMessage: conversation.lastMessage,
+        lastMessageAt: conversation.lastMessageAt,
+        unreadCount: 0,
+        createdAt: conversation.createdAt,
+        isBuyer: isCurrentUserBuyer
+      }
     });
   } catch (error) {
     console.error('Error starting conversation:', error);

@@ -124,7 +124,7 @@ export const initSocketServer = (httpServer: HttpServer) => {
           if (existingConversation) {
             conversation = existingConversation;
           } else {
-            // Create new conversation
+            // Create new conversation with message
             const isBuyer = user.role === 'BUYER';
             conversation = await prisma.conversation.create({
               data: {

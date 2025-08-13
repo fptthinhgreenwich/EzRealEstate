@@ -261,18 +261,46 @@ const ChatPage = () => {
     if (!receiverId) return;
     
     try {
+      console.log('Starting new conversation with:', { receiverId, propertyId });
       const response = await api.post('/chat/conversations/start', {
         receiverId,
         propertyId,
         initialMessage: null
       });
       
-      if (response.data.success) {
-        navigate(`/chat/${response.data.data.id}`);
+      console.log('Start conversation response:', response.data);
+      
+      if (response.data.success && response.data.data) {
+        const conversation = response.data.data;
+        if (conversation.id) {
+          console.log('Created conversation:', conversation.id);
+          // Set the active conversation immediately
+          setActiveConversation(conversation);
+          // Navigate to the new conversation
+          navigate(`/chat/${conversation.id}`);
+          // Note: Conversation won't appear in list until first message is sent
+        } else {
+          console.error('No conversation ID in response');
+          setError('Không nhận được ID cuộc trò chuyện');
+        }
+      } else {
+        console.error('Invalid response structure:', response.data);
+        setError('Phản hồi không hợp lệ từ server');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting conversation:', error);
-      setError('Không thể bắt đầu cuộc trò chuyện');
+      console.error('Error response:', error.response?.data);
+      
+      // More specific error messages
+      if (error.response?.status === 404) {
+        setError('Không tìm thấy người dùng');
+      } else if (error.response?.status === 400) {
+        setError(error.response.data?.message || 'Thông tin không hợp lệ');
+      } else if (error.response?.status === 500) {
+        setError('Lỗi server. Vui lòng thử lại sau');
+      } else {
+        setError('Không thể bắt đầu cuộc trò chuyện. Vui lòng thử lại');
+      }
     }
   };
   
@@ -281,9 +309,12 @@ const ChatPage = () => {
     
     setSending(true);
     
+    // Check if this is the first message (conversation not in list yet)
+    const isFirstMessage = messages.length === 0;
+    
     socket.emit('send-message', {
       conversationId: activeConversation.id,
-      receiverId: activeConversation.otherUser.id,
+      receiverId: activeConversation.otherUser?.id,
       message: newMessage,
       propertyId: activeConversation.property?.id
     }, (response: any) => {
@@ -311,6 +342,13 @@ const ChatPage = () => {
     setMessages(prev => [...prev, optimisticMessage]);
     setNewMessage('');
     setSending(false);
+    
+    // If this was the first message, reload conversations to show it in the list
+    if (isFirstMessage) {
+      setTimeout(() => {
+        loadConversations();
+      }, 500);
+    }
   };
   
   const updateConversationLastMessage = (convId: string, message: Message) => {
@@ -356,8 +394,8 @@ const ChatPage = () => {
   };
   
   const filteredConversations = conversations.filter(conv =>
-    conv.otherUser.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.property?.title.toLowerCase().includes(searchTerm.toLowerCase())
+    conv.otherUser?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    conv.property?.title?.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
   // Show loading spinner while auth is loading
@@ -426,8 +464,8 @@ const ChatPage = () => {
                     >
                       <ListItemAvatar>
                         <Badge badgeContent={conv.unreadCount} color="error">
-                          <Avatar src={conv.otherUser.avatar}>
-                            {conv.otherUser.fullName[0]}
+                          <Avatar src={conv.otherUser?.avatar}>
+                            {conv.otherUser?.fullName?.[0] || '?'}
                           </Avatar>
                         </Badge>
                       </ListItemAvatar>
@@ -436,8 +474,8 @@ const ChatPage = () => {
                           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <Typography variant="subtitle2" noWrap sx={{ maxWidth: '70%' }}>
                               {conv.property 
-                                ? `${conv.otherUser.fullName} - ${conv.property.title}`
-                                : conv.otherUser.fullName
+                                ? `${conv.otherUser?.fullName} - ${conv.property.title}`
+                                : conv.otherUser?.fullName
                               }
                             </Typography>
                             {conv.lastMessageAt && (
@@ -448,9 +486,11 @@ const ChatPage = () => {
                           </Box>
                         }
                         secondary={
-                          <Typography variant="body2" noWrap color="text.secondary">
-                            {conv.lastMessage || 'Bắt đầu cuộc trò chuyện'}
-                          </Typography>
+                          conv.lastMessage ? (
+                            <Typography variant="body2" noWrap color="text.secondary">
+                              {conv.lastMessage}
+                            </Typography>
+                          ) : null
                         }
                       />
                     </ListItem>
@@ -482,21 +522,21 @@ const ChatPage = () => {
                     <IconButton edge="start" onClick={() => navigate('/dashboard')} sx={{ mr: 2 }}>
                       <ArrowBackIcon />
                     </IconButton>
-                    <Avatar src={activeConversation.otherUser.avatar} sx={{ mr: 2 }}>
-                      {activeConversation.otherUser.fullName[0]}
+                    <Avatar src={activeConversation.otherUser?.avatar} sx={{ mr: 2 }}>
+                      {activeConversation.otherUser?.fullName?.[0] || '?'}
                     </Avatar>
                     <Box sx={{ flexGrow: 1 }}>
                       <Typography variant="h6">
                         {activeConversation.property 
-                          ? `${activeConversation.otherUser.fullName} - ${activeConversation.property.title}`
-                          : activeConversation.otherUser.fullName
+                          ? `${activeConversation.otherUser?.fullName} - ${activeConversation.property.title}`
+                          : activeConversation.otherUser?.fullName
                         }
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {activeConversation.otherUser.email}
+                        {activeConversation.otherUser?.email}
                       </Typography>
                     </Box>
-                    {activeConversation.otherUser.phone && (
+                    {activeConversation.otherUser?.phone && (
                       <IconButton>
                         <PhoneIcon />
                       </IconButton>

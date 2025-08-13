@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import TransactionManagement from '../../components/Admin/TransactionManagement';
+import UserManagement from '../../components/Admin/UserManagement';
 import {
   Box,
   Container,
@@ -451,7 +453,7 @@ const AdminDashboard: React.FC = () => {
           <Tab icon={<PeopleIcon />} label="Quản lý người dùng" />
           <Tab icon={<HomeIcon />} label="Duyệt BĐS" />
           <Tab icon={<HomeIcon />} label="Quản lý BĐS" />
-          <Tab icon={<AccountBalanceIcon />} label="Lịch sử giao dịch" />
+          <Tab icon={<AccountBalanceIcon />} label="Quản lý giao dịch" />
           <Tab icon={<SettingsIcon />} label="Cài đặt" />
         </Tabs>
       </Paper>
@@ -625,142 +627,7 @@ const AdminDashboard: React.FC = () => {
 
       {/* Users Management Tab */}
       <TabPanel value={tabValue} index={1}>
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Tìm kiếm người dùng"
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                placeholder="Email, tên, số điện thoại..."
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <FormControl fullWidth>
-                <InputLabel>Lọc theo vai trò</InputLabel>
-                <Select
-                  value={userRoleFilter}
-                  label="Lọc theo vai trò"
-                  onChange={(e) => setUserRoleFilter(e.target.value)}
-                >
-                  <MenuItem value="">Tất cả</MenuItem>
-                  <MenuItem value="BUYER">Buyer</MenuItem>
-                  <MenuItem value="SELLER">Seller</MenuItem>
-                  <MenuItem value="ADMIN">Admin</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <Button variant="contained" fullWidth onClick={loadUsers}>
-                Tìm kiếm
-              </Button>
-            </Grid>
-          </Grid>
-        </Paper>
-
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Họ tên</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>SĐT</TableCell>
-                <TableCell>Vai trò</TableCell>
-                <TableCell>Số dư</TableCell>
-                <TableCell>Trạng thái</TableCell>
-                <TableCell>Số BĐS</TableCell>
-                <TableCell>Ngày tạo</TableCell>
-                <TableCell>Hành động</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>{user.id.slice(0, 8)}...</TableCell>
-                  <TableCell>{user.fullName}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.phone || 'N/A'}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={user.role}
-                      color={user.role === 'ADMIN' ? 'error' : user.role === 'SELLER' ? 'primary' : 'default'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography 
-                      variant="body2" 
-                      color={Number(user.balance) > 0 ? 'success.main' : 'text.secondary'}
-                      fontWeight="bold"
-                    >
-                      {formatCurrency(Number(user.balance) || 0)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={user.isVerified ? 'Active' : 'Blocked'}
-                      color={user.isVerified ? 'success' : 'error'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>{user._count?.properties || 0}</TableCell>
-                  <TableCell>{new Date(user.createdAt).toLocaleDateString('vi-VN')}</TableCell>
-                  <TableCell>
-                    <IconButton
-                      onClick={() => {
-                        setSelectedUser(user);
-                        setUserDialog(true);
-                      }}
-                      title="Chỉnh sửa"
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      onClick={() => handleUserStatusChange(user.id, !user.isVerified)}
-                      color={user.isVerified ? 'error' : 'success'}
-                      title={user.isVerified ? 'Khóa tài khoản' : 'Kích hoạt'}
-                    >
-                      {user.isVerified ? <BlockIcon /> : <CheckIcon />}
-                    </IconButton>
-                    {user.role === 'SELLER' && (
-                      <IconButton
-                        onClick={() => handleLoginAsSeller(user.id)}
-                        color="primary"
-                        title="Đăng nhập với tư cách Seller"
-                      >
-                        <LoginIcon />
-                      </IconButton>
-                    )}
-                    <IconButton
-                      onClick={() => {
-                        setSelectedUser(user);
-                        setAddMoneyDialog(true);
-                      }}
-                      color="success"
-                      title="Cộng tiền"
-                    >
-                      <AddCircleIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
-            component="div"
-            count={userTotal}
-            rowsPerPage={userRowsPerPage}
-            page={userPage}
-            onPageChange={(e, page) => setUserPage(page)}
-            onRowsPerPageChange={(e) => {
-              setUserRowsPerPage(parseInt(e.target.value, 10));
-              setUserPage(0);
-            }}
-          />
-        </TableContainer>
+        <UserManagement />
       </TabPanel>
 
       {/* Property Moderation Tab */}
@@ -983,95 +850,9 @@ const AdminDashboard: React.FC = () => {
         </TableContainer>
       </TabPanel>
 
-      {/* Transaction History Tab */}
+      {/* Transaction Management Tab */}
       <TabPanel value={tabValue} index={4}>
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6">Lịch sử giao dịch</Typography>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Loại giao dịch</InputLabel>
-                <Select
-                  value={transactionTypeFilter}
-                  label="Loại giao dịch"
-                  onChange={(e) => setTransactionTypeFilter(e.target.value)}
-                >
-                  <MenuItem value="">Tất cả</MenuItem>
-                  <MenuItem value="DEPOSIT">Nạp tiền</MenuItem>
-                  <MenuItem value="WITHDRAW">Rút tiền</MenuItem>
-                  <MenuItem value="PREMIUM_UPGRADE">Nâng cấp Premium</MenuItem>
-                  <MenuItem value="COMMISSION">Hoa hồng</MenuItem>
-                  <MenuItem value="ADMIN_ADD">Admin cộng tiền</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-        </Paper>
-
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Thời gian</TableCell>
-                <TableCell>Người dùng</TableCell>
-                <TableCell>Loại</TableCell>
-                <TableCell>Số tiền</TableCell>
-                <TableCell>Mô tả</TableCell>
-                <TableCell>Trạng thái</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {transactions.map((transaction: any) => (
-                <TableRow key={transaction.id}>
-                  <TableCell>{new Date(transaction.createdAt).toLocaleString('vi-VN')}</TableCell>
-                  <TableCell>{transaction.user?.fullName || 'N/A'}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={transaction.type}
-                      size="small"
-                      color={
-                        transaction.type === 'DEPOSIT' ? 'success' :
-                        transaction.type === 'WITHDRAW' ? 'error' :
-                        transaction.type === 'PREMIUM_UPGRADE' ? 'warning' :
-                        'default'
-                      }
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography
-                      color={transaction.amount > 0 ? 'success.main' : 'error.main'}
-                      fontWeight="bold"
-                    >
-                      {transaction.amount > 0 ? '+' : ''}{formatCurrency(Math.abs(transaction.amount))}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{transaction.description}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={transaction.status}
-                      size="small"
-                      color={transaction.status === 'COMPLETED' ? 'success' : 'warning'}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <TablePagination
-            rowsPerPageOptions={[10, 25, 50]}
-            component="div"
-            count={transactionTotal}
-            rowsPerPage={transactionRowsPerPage}
-            page={transactionPage}
-            onPageChange={(e, page) => setTransactionPage(page)}
-            onRowsPerPageChange={(e) => {
-              setTransactionRowsPerPage(parseInt(e.target.value, 10));
-              setTransactionPage(0);
-            }}
-          />
-        </TableContainer>
+        <TransactionManagement />
       </TabPanel>
 
       {/* Settings Tab */}

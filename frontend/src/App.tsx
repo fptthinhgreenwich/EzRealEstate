@@ -23,6 +23,8 @@ import ProfilePage from './pages/Profile/ProfilePage'
 import NewPropertyPage from './pages/Dashboard/NewPropertyPage'
 import EditPropertyPage from './pages/Dashboard/EditPropertyPage'
 import ChatPage from './pages/Chat/ChatPage'
+import WalletPage from './pages/Wallet/WalletPage'
+import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
   const dispatch = useAppDispatch()
@@ -69,6 +71,11 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/chat/:conversationId" element={<ChatPage />} />
+          <Route path="/wallet" element={
+            <ProtectedRoute>
+              <WalletPage />
+            </ProtectedRoute>
+          } />
         </Routes>
       </Box>
       
